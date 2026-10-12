@@ -1,59 +1,60 @@
 [![Language: Verilog](https://img.shields.io/badge/Language-Verilog%20%2F%20SystemVerilog-blue.svg)](https://en.wikipedia.org/wiki/Verilog)
 [![Toolchain: EDA/FPGA](https://img.shields.io/badge/Tools-Questasim%20%7C%20Vivado-orange.svg)]()
 
-# 🚗 FPGA Automotive Subsystems Control Suite
+# 🚗 Advanced Automotive ECU: Performance Tuning and Safety Systems
 
-A collection of synthesizable, hardware-level automotive control modules designed in **Verilog/SystemVerilog** for FPGA deployment. This suite implements safety-critical vehicle dynamics, engine protection, dynamic aerodynamics, and driver assistance logic alongside modular self-checking testbenches.
+A collection of synthesizable, hardware-level automotive control modules designed in **Verilog/SystemVerilog** for FPGA deployment. This suite implements safety-critical vehicle dynamics, engine protection, dynamic aerodynamics, and driver assistance logic using a unified top-level ECU module that processes multiple sensory inputs concurrently without blocking or data hazards.
 
-Detailed design calculations, block diagrams, and state machine specifications are documented in [`docs/project_report.pdf`](docs/project_report.pdf).
+**Team Leader:** Amr Waheed Mohamed Abdallah
 
----
-
-## 🌟 ECU Subsystems Overview
-
-### 1. 🛑 Anti-lock Braking System (ABS) & Traction Control
-* **Wheel Slip Calculation:** Computes real-time slip ratios by comparing wheel speed metrics against vehicle velocity.
-* **PWM Torque Management:** Generates dynamic Pulse-Width Modulation (PWM) signals to reduce engine torque or regulate braking during wheel slip or lockup.
-
-### 2. 🛡️ Smart RPM Limiter & Engine Protection
-* **Over-Rev Safeguard:** Tracks real-time engine RPM metrics and triggers automatic safety cut-offs when reaching critical thresholds.
-* **Safety State Machine:** Enforces soft-limits during abnormal operational or thermal states.
-
-### 3. 🏎️ Dynamic Active Spoiler System
-* **Speed-Dependent Deployment:** Finite State Machine (FSM) that adjusts rear aerodynamic spoiler angle based on vehicle speed stages.
-* **Emergency Air-Brake:** Maximizes downforce dynamically under hard deceleration events.
-
-### 4. 🅿️ Advanced Ultrasonic Parking Assist
-* **Proximity Calculation:** Reads echo timing signals from ultrasonic sensors to determine obstacle distance.
-* **Dynamic Alerting:** Triggers progressive visual and audible alert patterns based on distance zone boundaries.
-### 5. ⚙️ Multi-Mode Drive Controller
-* **Selectable Drive Maps:** Maps pedal/throttle input to target duty cycles across Eco, Normal, Sport, and Track modes via custom lookup tables (LUTs).
-* **Rate-Limited Throttle Transitions:** Implements synchronous slewing rate-limiters to prevent abrupt power spikes, ensuring smooth transitions and drivetrain protection.
-* **Traction Control Interfacing:** Exposes real-time duty cycle metrics directly for dynamic torque management integration.
----
-
-## 📂 Folder Layout
-
-* **[`rtl/`](rtl/)**: Synthesizable Verilog/SystemVerilog modules for individual automotive control units.
-* **[`tb/`](tb/)**: Independent, self-checking testbenches with targeted stimulus injection for each subsystem.
-* **[`docs/`](docs/)**: Comprehensive technical report ([`project_report.pdf`](docs/project_report.pdf)) detailing hardware specs and simulation analysis.
+## 🌟 Motivation
+We designed this Advanced Automotive ECU because it represents a cutting-edge, real-world application of digital logic in modern vehicle engineering. By implementing four distinct vehicle subsystems on a single FPGA—specifically optimizing control signals for a 200V DC motor system—we demonstrate how synchronous logic and rapid combinational circuits effectively manage critical mechanical functions.
 
 ---
 
-## 🛠️ Tools & Simulation
+## ⚙️ ECU Subsystems Overview & Architecture
 
-* **Language:** Verilog / SystemVerilog
-* **Design Methodology:** Synthesizable RTL, Synchronous FSM Design
-* **Simulation & EDA Tools:** ModelSim / Questasim / Vivado / Icarus Verilog & GTKWave
+### 1. 🅿️ Advanced Ultrasonic Parking Assist System
+* **Proximity Calculation:** Uses a 16-bit sequential counter to measure the width of an incoming ultrasonic `echo_pulse`.
+* **Dynamic Alerting:** Evaluates the pulse width; if it falls below the danger threshold of 5000 clock cycles, it instantly triggers an `alarm_led` warning of a dangerously close obstacle.
 
-### Running Individual Subsystem Simulations (Icarus Verilog Example)
+### 2. 🏎️ Motor Controller & Drive Modes (200V DC System)
+* **Throttle Decoding:** A purely combinational decoder that maps a 2-bit throttle input to a duty cycle percentage (00: 25% Idle, 01: 50% Power, 10: 75% Power, 11: 100% Full Throttle).
+* **PWM Generation:** Utilizes an 8-bit PWM generator counter to adjust the exact duty cycle for the 200V DC motor driver, outputting the `motor_pwm` signal.
 
-You can simulate any specific module alongside its matching testbench:
+### 3. 🛡️ RPM Limiter & Engine Protection (Launch Control)
+* **Over-Rev Safeguard:** Features a hardware combinational comparator that continuously monitors an 8-bit `engine_rpm` input.
+* **Safety Cut-off:** Instantly outputs an `ignition_cut` signal if the engine redline threshold (e.g., > 200 RPM) is exceeded, ensuring immediate engine protection.
 
-```bash
-# Example: Simulating the ABS & Traction Control Module
-iverilog -o abs_sim tb/tb_abs_traction_control.v rtl/abs_traction_control.v
-vvp abs_sim
+### 4. 🌪️ Dynamic Active Aero System (Spoiler)
+* **Speed-Dependent Deployment:** Employs an 8-bit vehicle speed monitoring comparator.
+* **Automatic Trigger:** Generates a `spoiler_deploy` signal to automatically raise the rear aerodynamic wing when the vehicle's speed crosses a stability threshold (e.g., speed > 100).
 
-# View waveform
-gtkwave abs_sim.vcd
+---
+
+## 🏗️ Top-Level Block Diagram
+
+```text
++---------------------------------------------------------+
+|               Advanced Automotive ECU (FPGA)            |
+|                                                         |
+| [clk] ---------------->|  +-------------------------+   |
+| [rst] ---------------->|  | 1. Parking Assist       |   |
+| [echo_pulse] --------->|  | - 16-bit Counter        |-------> [alarm_led]
+|                        |  | - Comparator (< 5000)   |   |
+|                        |  +-------------------------+   |
+|                                                         |
+| [throttle (2-bit)] --->|  +-------------------------+   |
+|                        |  | 2. Motor Controller     |-------> [motor_pwm]
+|                        |  | - 8-bit PWM Gen         |   | (To 200V DC Driver)
+|                        |  | - Duty Cycle Decoder    |   |
+|                        |  +-------------------------+   |
+|                                                         |
+| [engine_rpm (8-bit)] ->|  +-------------------------+   |
+|                        |  | 3. RPM Limiter          |-------> [ignition_cut]
+|                        |  | - Comparator (> 200)    |   |
+|                        |  +-------------------------+   |
+|                                                         |
+| [vehicle_speed] ------>|  +-------------------------+   |
+| (8-bit)                |  | 4. Active Aero System   |-------> [spoiler_deploy]
+|                        |  | - Comparator (> 100)    |   |
