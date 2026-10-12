@@ -5,7 +5,7 @@
 
 A collection of synthesizable, hardware-level automotive control modules designed in **Verilog/SystemVerilog** for FPGA deployment. This suite implements safety-critical vehicle dynamics, engine protection, dynamic aerodynamics, and driver assistance logic alongside modular self-checking testbenches.
 
-Detailed design calculations, block diagrams, and state machine specifications are documented in [`docs/project_report.pdf`](docs/project_report.pdf).
+Detailed design calculations, block diagrams, and state machine specifications are documented in [`docs/project_report.pdf`](docs/project_report.pdf)
 
 ---
 
